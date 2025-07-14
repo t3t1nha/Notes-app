@@ -1,134 +1,83 @@
 #include "json.hpp"
 #include "imgui/imgui.h"
+#include "backends/imgui_impl_glfw.h"
+#include "backends/imgui_impl_opengl3.h"
 
+#include <GLFW/glfw3.h>
 #include <iostream>
 #include <fstream>
 #include <vector>
 #include <string>
-#include <limits>
 
-using namespace std::pmr;
-using json = nlohmann::json;
+#include "NoteApp.hpp"
 
-struct Note {
-    std::string title;
-    std::string description;
-};
-
-std::vector<Note> NOTES;
-
-
-void to_json(json& j, const Note& note) {
-    j = json{{"title", note.title}, {"description", note.description}};
-}
-
-void from_json(const json& j, Note& note) {
-    j.at("title").get_to(note.title);
-    j.at("description").get_to(note.description);
-}
-
-
-void SaveNotes(const std::vector<Note>& notes, const std::string& filename) {
-    json j = notes;
-    std::ofstream file(filename);
-    file << j.dump(4);
-}
-
-std::vector<Note> LoadNotes(const std::string& filename) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        return {};
-    }
-
-    json j;
-    try {
-        file >> j;
-        return j.get<std::vector<Note>>();
-    } catch (...) {
-        std::cerr << "Error reading JSON. Starting with empty notes.\n";
-        return {};
-    }
-}
-
-
-
-void FillNote(Note &note) {
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // clear buffer
-
-    std::cout << "Enter title: ";
-    std::getline(std::cin, note.title);
-    std::cout << "Enter description: ";
-    std::getline(std::cin, note.description);
-}
-
-void ShowMenu() {
-    std::cout << "====== Options ======\n";
-    std::cout << "1 - Add Note\n";
-    std::cout << "2 - Show Notes\n";
-    std::cout << "3 - Edit Notes\n";
-    std::cout << "4 - Delete Notes\n";
-    std::cout << "0 - Exit\n";
-    std::cout << "Insert Option: ";
-}
-
-void AddNote() {
-    Note newNote;
-    FillNote(newNote);
-
-    NOTES.push_back(newNote);
-}
-
-void ShowNotes() {
-    for (int i = 0; i < NOTES.size(); i++) {
-        std::cout << "Note " << i + 1 << "\n";
-        std::cout << "Title: " << NOTES[i].title << "\n";
-        std::cout << "Description: " << NOTES[i].description << "\n\n";
-    }
-}
-
-void EditNote() {
-    int n;
-    std::cout << "What note would you like to edit: ";
-    std::cin >> n;
-    FillNote(NOTES[n - 1]);
-}
-
-void DeleteNote() {
-    int n;
-    std::cout << "What note would you like to remove: ";
-    std::cin >> n;
-    NOTES.erase(NOTES.begin() + (n - 1));
-}
-
-int GetOption() {
-    int option;
-    ShowMenu();
-    std::cin >> option;
-    return option;
-}
 
 int main() {
-    NOTES = LoadNotes("notes.json");
+    // 1. Init GLFW
+    if (!glfwInit()) return -1;
 
-    do {
-        switch (GetOption()) {
-            case 0:
-                SaveNotes(NOTES,"notes.json");
-                return 0;
-            case 1:
-                AddNote();
-                break;
-            case 2:
-                ShowNotes();
-                break;
-            case 3:
-                EditNote();
-                break;
-            case 4:
-                DeleteNote();
-                break;
-            default:
-                std::cout << "Invalid Option \n";
-        }
-    } while (1);
+    GLFWwindow* window = glfwCreateWindow(800, 600, "Note App", nullptr, nullptr);
+    glfwSetWindowPos(window, 560, 240);
+    if (!window) {
+        glfwTerminate();
+        return -1;
+    }
+
+    NoteApp app;
+    app.NOTES = app.LoadNotes("notes.json");
+
+    glfwMakeContextCurrent(window);
+    glfwSwapInterval(1); // Enable vsync
+
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+
+    // Setup ImGui style
+    ImGui::StyleColorsDark();
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 130"); // Use your OpenGL version here
+
+    // Main loop
+    while (!glfwWindowShouldClose(window)) {
+        glfwPollEvents();
+
+        // Start the frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
+        ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
+        ImGui::Begin("Nigger", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar |ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBringToFrontOnFocus);
+
+        app.render();
+
+        ImGui::End();
+
+        // Rendering
+        ImGui::Render();
+        int display_w, display_h;
+        glfwGetFramebufferSize(window, &display_w, &display_h);
+        glViewport(0, 0, display_w, display_h);
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        glfwSwapBuffers(window);
+    }
+
+    app.SaveNotes(app.NOTES, "notes.json");
+
+    // Cleanup
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    glfwDestroyWindow(window);
+    glfwTerminate();
+
+    return 0;
 }

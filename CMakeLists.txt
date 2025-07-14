@@ -24,6 +24,7 @@ file(GLOB IMGUI_SOURCES
 # Your app source files
 add_executable(notes_app
         src/main.cpp
+        src/NoteApp.cpp
         ${IMGUI_SOURCES}
 )
 
