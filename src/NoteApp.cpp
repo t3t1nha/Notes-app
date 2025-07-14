@@ -5,7 +5,6 @@
 #include <fstream>
 #include <limits>
 
-// JSON serialization must be outside class as free functions:
 
 void to_json(json& j, const NoteApp::Note& note) {
     j = json{{"title", note.title}, {"description", note.description}};
@@ -16,7 +15,6 @@ void from_json(const json& j, NoteApp::Note& note) {
     j.at("description").get_to(note.description);
 }
 
-// ----------------- NoteApp method implementations ---------------------
 
 void NoteApp::render() {
     // List notes with selectable titles
